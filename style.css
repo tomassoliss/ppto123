@@ -1,79 +1,108 @@
+/* ---------------------------------------------------------------
+   Identidad Hypnos: paleta oficial de 5 colores, DM Sans, títulos en
+   minúscula, formas redondeadas generosas. Ver /hypnos-brand skill.
+--------------------------------------------------------------- */
 :root{
-  --bg:#fafafa;
-  --card:#ffffff;
-  --border:#e4e4e4;
-  --text:#1a1a1a;
-  --dim:#767676;
-  --accent:#3a6b5c; /* único color de acento, cámbialo aquí si quieres otro */
-  --over:#b5482f;
+  --white:#FFFFFF;
+  --beige-light:#EAE6E3;
+  --beige-dark:#B3AAA1;
+  --gray:#BDBAB7;
+  --cappuccino:#28211C;
+
+  /* Excepción de "semáforo" permitida por la guía de marca cuando es
+     estrictamente necesario (alertas de sobregasto / pendientes de pago),
+     siempre muy desaturada — nunca rojo puro. */
+  --alerta:#9C6B54;
+
+  /* Alias internos para no reescribir todo el resto del CSS */
+  --bg: var(--beige-light);
+  --card: var(--white);
+  --border: var(--gray);
+  --text: var(--cappuccino);
+  --dim: var(--beige-dark);
+  --accent: var(--cappuccino);
+  --over: var(--alerta);
+
+  --radius-button: 999px;
+  --radius-card: 16px;
+  --font-primary: 'DM Sans', Arial, sans-serif;
 }
+
 *{box-sizing:border-box;}
 body{
-  margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
-  background:var(--bg); color:var(--text);
+  margin:0; font-family:var(--font-primary);
+  background:var(--bg); color:var(--text); font-weight:400;
+}
+
+h1, h2, h3{
+  font-weight:600; text-transform:lowercase; letter-spacing:-0.02em;
 }
 
 #lock{
   height:100vh; display:flex; align-items:center; justify-content:center; gap:0.5rem;
+  background:var(--bg);
 }
 #lock input{
-  padding:0.6rem 0.8rem; border:1px solid var(--border); border-radius:4px; font-size:0.95rem;
+  padding:0.7rem 1rem; border:1px solid var(--border); border-radius:var(--radius-button); font-size:0.95rem;
+  font-family:var(--font-primary); background:var(--white); color:var(--text);
 }
 #lock button{
-  padding:0.6rem 1rem; border:none; background:var(--accent); color:#fff; border-radius:4px; cursor:pointer;
+  padding:0.7rem 1.4rem; border:none; background:var(--cappuccino); color:var(--white);
+  border-radius:var(--radius-button); cursor:pointer; font-family:var(--font-primary); font-weight:500;
 }
 
-#app{ max-width:960px; margin:0 auto; padding:2.5rem 1.5rem; }
+#app{ max-width:960px; margin:0 auto; padding:3rem 1.5rem; }
 
-header h1{ font-size:1.4rem; font-weight:600; margin-bottom:1rem; }
+header h1{ font-size:1.6rem; margin-bottom:1.2rem; }
 
-#kpis{ display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+#kpis{ display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:2rem; }
 .kpi{
-  background:var(--card); border:1px solid var(--border); border-radius:6px;
-  padding:1rem 1.2rem; flex:1; min-width:160px;
+  background:var(--card); border:1px solid var(--border); border-radius:var(--radius-card);
+  padding:1.3rem 1.4rem; flex:1; min-width:160px;
 }
-.kpi .label{ font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--dim); }
-.kpi .value{ font-size:1.4rem; margin-top:0.3rem; }
+.kpi .label{ font-size:0.7rem; text-transform:uppercase; letter-spacing:0.05em; color:var(--dim); }
+.kpi .value{ font-size:1.5rem; margin-top:0.4rem; color:var(--text); }
 .kpi .value.over{ color:var(--over); }
 
-nav{ display:flex; gap:0.4rem; margin-bottom:1.2rem; border-bottom:1px solid var(--border); }
+nav{ display:flex; gap:0.3rem; margin-bottom:1.6rem; border-bottom:1px solid var(--border); flex-wrap:wrap; }
 nav button{
-  background:none; border:none; padding:0.6rem 0.9rem; cursor:pointer;
+  background:none; border:none; padding:0.7rem 1rem; cursor:pointer;
   color:var(--dim); border-bottom:2px solid transparent; font-size:0.9rem;
+  font-family:var(--font-primary);
 }
-nav button.active{ color:var(--text); border-color:var(--accent); }
+nav button.active{ color:var(--cappuccino); border-color:var(--cappuccino); font-weight:500; }
 
-table{ width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
-th,td{ padding:0.6rem 0.8rem; text-align:left; border-bottom:1px solid var(--border); font-size:0.88rem; }
-th{ background:#f2f2f2; font-weight:600; font-size:0.75rem; text-transform:uppercase; color:var(--dim); }
+table{ width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:var(--radius-card); overflow:hidden; }
+th,td{ padding:0.7rem 0.9rem; text-align:left; border-bottom:1px solid var(--beige-light); font-size:0.87rem; }
+th{ background:var(--beige-light); font-weight:600; font-size:0.72rem; text-transform:uppercase; color:var(--dim); }
 tr:last-child td{ border-bottom:none; }
 
-.bar-track{ background:#eee; border-radius:3px; height:6px; overflow:hidden; margin-top:0.4rem; }
-.bar-fill{ height:100%; background:var(--accent); }
+.bar-track{ background:var(--beige-light); border-radius:3px; height:6px; overflow:hidden; margin-top:0.5rem; }
+.bar-fill{ height:100%; background:var(--cappuccino); }
 .bar-fill.over{ background:var(--over); }
 
 .group-title{ margin:1.4rem 0 0.5rem; font-size:1rem; font-weight:600; }
 
 .pill{
-  font-size:0.72rem; padding:0.15rem 0.55rem; border-radius:20px;
+  font-size:0.72rem; padding:0.2rem 0.7rem; border-radius:var(--radius-button);
   display:inline-block;
 }
-.pill-pagado{ background:#e7efec; color:var(--accent); }
-.pill-presupuestado{ background:#eee; color:var(--dim); }
-.pill-confirmado{ background:#fbeee9; color:var(--over); }
+.pill-pagado{ background:var(--beige-light); color:var(--cappuccino); font-weight:500; }
+.pill-presupuestado{ background:var(--beige-light); color:var(--dim); }
+.pill-confirmado{ background:#f1e6df; color:var(--over); font-weight:500; }
 
-/* Tarjetas y grillas usadas en Tipo/Estado e Informes */
+/* Tarjetas y grillas */
 .card{
-  background:var(--card); border:1px solid var(--border); border-radius:6px; padding:1.2rem;
+  background:var(--card); border:1px solid var(--border); border-radius:var(--radius-card); padding:1.6rem;
 }
-.grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
-.grid-4{ display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-top:0.5rem; }
+.grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; }
+.grid-4{ display:grid; grid-template-columns:repeat(4,1fr); gap:1.2rem; margin-top:0.5rem; }
 @media (max-width:700px){
   .grid-2{ grid-template-columns:1fr; }
   .grid-4{ grid-template-columns:1fr 1fr; }
 }
 
-/* Impresión: solo se imprime el informe, no el resto del dashboard */
+/* Impresión */
 @media print{
   header, nav, #lock, .no-print{ display:none !important; }
   body{ background:#fff; }
@@ -84,28 +113,28 @@ tr:last-child td{ border-bottom:none; }
   .acc-chevron{ display:none; }
 }
 
-/* Acordeón colapsable (usado en Mes, Trimestre, Categoría, Pendientes) */
+/* Acordeón colapsable */
 .acc{
-  border:1px solid var(--border); border-radius:6px; margin-bottom:0.6rem; overflow:hidden; background:var(--card);
+  border:1px solid var(--border); border-radius:var(--radius-card); margin-bottom:0.7rem; overflow:hidden; background:var(--card);
 }
 .acc-head{
-  display:flex; align-items:center; gap:0.6rem; padding:0.7rem 1rem; cursor:pointer;
+  display:flex; align-items:center; gap:0.6rem; padding:0.85rem 1.2rem; cursor:pointer;
 }
-.acc-head:hover{ background:#f7f7f7; }
+.acc-head:hover{ background:var(--beige-light); }
 .acc-chevron{ transition:transform 0.15s ease; color:var(--dim); font-size:0.8rem; }
 .acc.open .acc-chevron{ transform:rotate(90deg); }
 .acc-title{ flex:1; font-weight:600; font-size:0.92rem; }
 .acc-total{ font-size:0.88rem; color:var(--dim); }
 .acc-total.over{ color:var(--over); }
-.acc-body{ display:none; padding:0 1rem; }
-.acc.open > .acc-body{ display:block; padding:0 1rem 1rem; }
+.acc-body{ display:none; padding:0 1.2rem; }
+.acc.open > .acc-body{ display:block; padding:0 1.2rem 1.2rem; }
 
-/* Botones de selección de alcance (Total / Q1-Q4) */
+/* Botones de selección de alcance (Total / Q1-Q4 / Mes / Trimestre / Año) */
 .scope-btn{
-  border:1px solid var(--border); background:#fff; padding:0.4rem 0.9rem; border-radius:20px;
-  cursor:pointer; font-size:0.82rem; color:var(--dim);
+  border:1px solid var(--border); background:var(--white); padding:0.45rem 1rem; border-radius:var(--radius-button);
+  cursor:pointer; font-size:0.82rem; color:var(--dim); font-family:var(--font-primary);
 }
-.scope-btn.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+.scope-btn.active{ background:var(--cappuccino); border-color:var(--cappuccino); color:var(--white); }
 
 /* Mini-gráficos dentro de cada grupo del acordeón */
 .mini-charts{
@@ -116,4 +145,8 @@ tr:last-child td{ border-bottom:none; }
 .mini-chart-box canvas{ max-height:180px; }
 @media (max-width:700px){
   .mini-charts{ grid-template-columns:1fr; }
+}
+
+#refresh-btn, #print-btn{
+  border-radius:var(--radius-button) !important;
 }

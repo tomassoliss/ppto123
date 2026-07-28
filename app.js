@@ -32,7 +32,10 @@ function fmt(n){
 }
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
-const COLORES = ['#3a6b5c','#b5482f','#7a8fa3','#c9a24b','#8a6d9e','#5f9ea0','#a35f5f','#767676','#4b7a8f','#9e7a3a'];
+// Paleta Hypnos: solo tonos dentro de la familia cappuccino/beige/gris oficial,
+// diferenciados por luminosidad (no se introducen colores externos).
+const COLORES = ['#28211C','#4a3f36','#6b5d50','#8c7c6c','#a89a8a','#B3AAA1','#BDBAB7','#d6d1cb'];
+const COLOR_ALERTA = '#9C6B54'; // terracota muy desaturada — única excepción de "semáforo", solo para alertas necesarias
 
 function mesDeFecha(g){
   const n = Number(g.mes);
@@ -224,7 +227,7 @@ function renderResumen(){
         {
           label: 'Gasto real',
           data: dataMensual,
-          backgroundColor: dataMensual.map(v => (DATA.presupuestoMensual > 0 && v > DATA.presupuestoMensual) ? '#b5482f' : '#3a6b5c'),
+          backgroundColor: dataMensual.map(v => (DATA.presupuestoMensual > 0 && v > DATA.presupuestoMensual) ? COLOR_ALERTA : '#28211C'),
           borderRadius: 3
         },
         {
@@ -271,7 +274,7 @@ function renderResumen(){
   if (chartResumenTipo) chartResumenTipo.destroy();
   chartResumenTipo = new Chart(document.getElementById('chart-resumen-tipo'), {
     type: 'doughnut',
-    data: { labels: tipoEntradas.map(([n]) => n), datasets: [{ data: tipoEntradas.map(([,t]) => t), backgroundColor: ['#3a6b5c','#b5482f'], borderColor: '#fff', borderWidth: 2 }] },
+    data: { labels: tipoEntradas.map(([n]) => n), datasets: [{ data: tipoEntradas.map(([,t]) => t), backgroundColor: ['#28211C','#B3AAA1'], borderColor: '#fff', borderWidth: 2 }] },
     options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 10 } } },
       tooltip: { callbacks: { label: c => `${c.label}: ${fmt(c.raw)} (${(c.raw/totalTipo*100).toFixed(1)}%)` } } } }
   });
@@ -280,7 +283,7 @@ function renderResumen(){
   const porEstado = agrupar(DATA.gastos, g => g.estado);
   const estadoEntradas = Object.entries(porEstado).map(([n, its]) => [n, its.reduce((s,g) => s + g.monto, 0)]);
   const totalEstado = estadoEntradas.reduce((s,[,t]) => s + t, 0);
-  const coloresEstado = { 'Pagado': '#3a6b5c', 'Presupuestado': '#7a8fa3', 'Por pagar': '#b5482f' };
+  const coloresEstado = { 'Pagado': '#28211C', 'Presupuestado': '#B3AAA1', 'Por pagar': COLOR_ALERTA };
   if (chartResumenEstado) chartResumenEstado.destroy();
   chartResumenEstado = new Chart(document.getElementById('chart-resumen-estado'), {
     type: 'doughnut',
@@ -419,7 +422,7 @@ function renderMiniCharts(id){
 
   new Chart(tipoCanvas, {
     type: 'doughnut',
-    data: { labels: tipoEntradas.map(([n]) => n), datasets: [{ data: tipoEntradas.map(([,t]) => t), backgroundColor: ['#3a6b5c','#b5482f'], borderColor: '#fff', borderWidth: 2 }] },
+    data: { labels: tipoEntradas.map(([n]) => n), datasets: [{ data: tipoEntradas.map(([,t]) => t), backgroundColor: ['#28211C','#B3AAA1'], borderColor: '#fff', borderWidth: 2 }] },
     options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } },
       tooltip: { callbacks: { label: c => `${c.label}: ${fmt(c.raw)} (${(c.raw/totalTipo*100).toFixed(1)}%)` } } } }
   });
