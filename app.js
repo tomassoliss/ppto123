@@ -13,10 +13,13 @@ document.getElementById('lock-input').addEventListener('keydown', e => {
 function tryUnlock(){
   const val = document.getElementById('lock-input').value;
   if (val === CLAVE) {
-    document.getElementById('lock').hidden = true;
+    // Usamos style.display directo (no la propiedad hidden) porque la regla
+    // CSS "#lock{...}" tiene más especificidad que "[hidden]{display:none}"
+    // del navegador, y eso impedía que el candado desapareciera de verdad.
+    const lockEl = document.getElementById('lock');
+    lockEl.style.display = 'none';
+    lockEl.hidden = true;
     document.getElementById('app').hidden = false;
-    // Fix: si el teclado del celular había scrolleado la página, esto
-    // asegura que el dashboard aparezca arriba del todo, no a medio scroll.
     window.scrollTo(0, 0);
     init();
   } else {
