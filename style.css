@@ -104,3 +104,14 @@ tr:last-child td{ border-bottom:none; }
   cursor:pointer; font-size:0.82rem; color:var(--dim);
 }
 .scope-btn.active{ background:var(--accent); border-color:var(--accent); color:#fff; }
+
+/* Mini-gráficos dentro de cada grupo del acordeón */
+.mini-charts{
+  display:grid; grid-template-columns:1fr 1fr; gap:1rem; margin:1rem 0;
+}
+.mini-chart-box{ position:relative; }
+.mini-chart-label{ font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--dim); margin-bottom:0.3rem; }
+.mini-chart-box canvas{ max-height:180px; }
+@media (max-width:700px){
+  .mini-charts{ grid-template-columns:1fr; }
+}
