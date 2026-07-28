@@ -15,6 +15,9 @@ function tryUnlock(){
   if (val === CLAVE) {
     document.getElementById('lock').hidden = true;
     document.getElementById('app').hidden = false;
+    // Fix: si el teclado del celular había scrolleado la página, esto
+    // asegura que el dashboard aparezca arriba del todo, no a medio scroll.
+    window.scrollTo(0, 0);
     init();
   } else {
     alert('Clave incorrecta');
@@ -29,6 +32,7 @@ function fmt(n){
 }
 
 const MESES = ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'];
+const COLORES = ['#3a6b5c','#b5482f','#7a8fa3','#c9a24b','#8a6d9e','#5f9ea0','#a35f5f','#767676','#4b7a8f','#9e7a3a'];
 
 function mesDeFecha(g){
   const n = Number(g.mes);
@@ -50,7 +54,7 @@ const SHEET_URL = "https://script.google.com/macros/s/AKfycbzJFLXk7D_EhkZ2PFshOz
 // Carga de datos y arranque
 // ---------------------------------------------------------------
 let DATA = null;
-let currentView = 'mes';
+let currentView = 'resumen';
 
 async function cargarDatos(){
   const content = document.getElementById('content');
@@ -107,9 +111,15 @@ function renderKPIs(){
       <div class="value ${over ? 'over' : ''}">${pct !== null ? pct + '%' : '—'}</div>
     </div>
   `;
+  if (presupuestoAnual === 0) {
+    document.getElementById('kpis').insertAdjacentHTML('beforeend',
+      `<p class="no-print" style="width:100%; color:var(--over); font-size:0.8rem; margin-top:0.4rem;">
+        ⚠ El presupuesto está en $0 — probablemente falta re-desplegar Code.gs como nueva versión en Apps Script (Deploy → Manage deployments → editar → New version).
+      </p>`);
+  }
 }
 
-// Agrupa un arreglo de gastos según una función de clave (mes, trimestre, categoría)
+// Agrupa un arreglo de gastos según una función de clave
 function agrupar(gastos, keyFn){
   const grupos = {};
   gastos.forEach(g => {
@@ -121,13 +131,138 @@ function agrupar(gastos, keyFn){
 }
 
 function renderView(view){
+  if (view === 'resumen') return renderResumen();
   if (view === 'tipoestado') return renderTipoEstado();
   if (view === 'informes') return renderInformes();
   if (view === 'categoria') return renderCategoria();
   renderAgrupado(view);
 }
 
+// ---------------------------------------------------------------
+// Vista: Resumen (landing, todo en gráficos)
+// ---------------------------------------------------------------
+let chartResumenMensual = null;
+let chartResumenCategoria = null;
+let chartResumenTipo = null;
+let chartResumenEstado = null;
+
+function renderResumen(){
+  const content = document.getElementById('content');
+  content.innerHTML = `
+    <div class="card" style="margin-bottom:1.2rem;">
+      <h3>Gasto real por mes</h3>
+      <div style="position:relative; height:260px;"><canvas id="chart-resumen-mensual"></canvas></div>
+    </div>
+    <div class="grid-2" style="margin-bottom:1.2rem;">
+      <div class="card">
+        <h3>Por categoría (año completo)</h3>
+        <div style="position:relative; height:260px;"><canvas id="chart-resumen-categoria"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="grid-2" style="gap:0.5rem;">
+          <div>
+            <h3>Tipo de pago</h3>
+            <div style="position:relative; height:220px;"><canvas id="chart-resumen-tipo"></canvas></div>
+          </div>
+          <div>
+            <h3>Estado</h3>
+            <div style="position:relative; height:220px;"><canvas id="chart-resumen-estado"></canvas></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
+
+  // Gasto real por mes (barras) + línea de presupuesto de referencia
+  const porMesTodos = {};
+  for (let n = 1; n <= 12; n++) porMesTodos[n] = 0;
+  DATA.gastos.forEach(g => {
+    const n = Number(g.mes);
+    if (n >= 1 && n <= 12) porMesTodos[n] += g.monto;
+  });
+  const dataMensual = Object.values(porMesTodos);
+
+  if (chartResumenMensual) chartResumenMensual.destroy();
+  chartResumenMensual = new Chart(document.getElementById('chart-resumen-mensual'), {
+    type: 'bar',
+    data: {
+      labels: MESES.map(m => m.slice(0,3)),
+      datasets: [
+        {
+          label: 'Gasto real',
+          data: dataMensual,
+          backgroundColor: dataMensual.map(v => (DATA.presupuestoMensual > 0 && v > DATA.presupuestoMensual) ? '#b5482f' : '#3a6b5c'),
+          borderRadius: 3
+        },
+        {
+          label: 'Presupuesto de referencia',
+          data: MESES.map(() => DATA.presupuestoMensual),
+          type: 'line',
+          borderColor: '#999',
+          borderDash: [4,4],
+          pointRadius: 0,
+          borderWidth: 1.5
+        }
+      ]
+    },
+    options: {
+      responsive: true,
+      plugins: {
+        legend: { position: 'top', labels: { boxWidth: 10, font: { size: 11 } } },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmt(c.raw)}` } }
+      },
+      scales: { y: { ticks: { callback: v => fmt(v) } } }
+    }
+  });
+
+  // Por categoría (donut, año completo)
+  const porCat = agrupar(DATA.gastos, g => g.categoria);
+  const catEntradas = Object.entries(porCat)
+    .map(([n, its]) => [n, its.reduce((s,g) => s + g.monto, 0)])
+    .filter(([,t]) => t > 0)
+    .sort((a,b) => b[1] - a[1]);
+  const totalCat = catEntradas.reduce((s,[,t]) => s + t, 0);
+
+  if (chartResumenCategoria) chartResumenCategoria.destroy();
+  chartResumenCategoria = new Chart(document.getElementById('chart-resumen-categoria'), {
+    type: 'doughnut',
+    data: { labels: catEntradas.map(([n]) => n), datasets: [{ data: catEntradas.map(([,t]) => t), backgroundColor: COLORES, borderColor: '#fff', borderWidth: 2 }] },
+    options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 10 } } },
+      tooltip: { callbacks: { label: c => `${c.label}: ${fmt(c.raw)} (${(c.raw/totalCat*100).toFixed(1)}%)` } } } }
+  });
+
+  // Tipo
+  const porTipo = agrupar(DATA.gastos, g => g.tipo);
+  const tipoEntradas = Object.entries(porTipo).map(([n, its]) => [n, its.reduce((s,g) => s + g.monto, 0)]);
+  const totalTipo = tipoEntradas.reduce((s,[,t]) => s + t, 0);
+  if (chartResumenTipo) chartResumenTipo.destroy();
+  chartResumenTipo = new Chart(document.getElementById('chart-resumen-tipo'), {
+    type: 'doughnut',
+    data: { labels: tipoEntradas.map(([n]) => n), datasets: [{ data: tipoEntradas.map(([,t]) => t), backgroundColor: ['#3a6b5c','#b5482f'], borderColor: '#fff', borderWidth: 2 }] },
+    options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 10 } } },
+      tooltip: { callbacks: { label: c => `${c.label}: ${fmt(c.raw)} (${(c.raw/totalTipo*100).toFixed(1)}%)` } } } }
+  });
+
+  // Estado
+  const porEstado = agrupar(DATA.gastos, g => g.estado);
+  const estadoEntradas = Object.entries(porEstado).map(([n, its]) => [n, its.reduce((s,g) => s + g.monto, 0)]);
+  const totalEstado = estadoEntradas.reduce((s,[,t]) => s + t, 0);
+  const coloresEstado = { 'Pagado': '#3a6b5c', 'Presupuestado': '#7a8fa3', 'Por pagar': '#b5482f' };
+  if (chartResumenEstado) chartResumenEstado.destroy();
+  chartResumenEstado = new Chart(document.getElementById('chart-resumen-estado'), {
+    type: 'doughnut',
+    data: { labels: estadoEntradas.map(([n]) => n), datasets: [{ data: estadoEntradas.map(([,t]) => t), backgroundColor: estadoEntradas.map(([n]) => coloresEstado[n] || '#999'), borderColor: '#fff', borderWidth: 2 }] },
+    options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 10 } } },
+      tooltip: { callbacks: { label: c => `${c.label}: ${fmt(c.raw)} (${(c.raw/totalEstado*100).toFixed(1)}%)` } } } }
+  });
+}
+
+// ---------------------------------------------------------------
 // Acordeón genérico usado por "Por mes" y "Por trimestre"
+// ---------------------------------------------------------------
+let accCounter = 0;
+const groupItemsRegistry = {};
+
 function renderAgrupado(view){
   let keyFn;
   if (view === 'mes') keyFn = g => mesDeFecha(g);
@@ -137,20 +272,35 @@ function renderAgrupado(view){
   const presupuestoRef = view === 'trimestre' ? DATA.presupuestoMensual * 3 : DATA.presupuestoMensual;
 
   document.getElementById('content').innerHTML = Object.entries(grupos)
-    .map(([nombre, items]) => acordeonGrupo(nombre, items, presupuestoRef))
+    .map(([nombre, items]) => {
+      let subgrupos = null;
+      if (view === 'trimestre') {
+        subgrupos = Object.entries(agrupar(items, g => mesDeFecha(g)));
+      }
+      return acordeonGrupo(nombre, items, presupuestoRef, { subgrupos, miniCharts: true });
+    })
     .join('');
 
   activarAcordeones();
 }
 
-// Arma un bloque de acordeón: encabezado con total/% + tabla oculta hasta hacer click
-function acordeonGrupo(nombre, items, presupuestoRef){
+// nombre, items, presupuestoRef (o null), opts: { subgrupos, miniCharts, pctShare }
+function acordeonGrupo(nombre, items, presupuestoRef, opts = {}){
   const total = items.reduce((sum, g) => sum + g.monto, 0);
-  const pct = presupuestoRef > 0 ? (total / presupuestoRef * 100) : null;
-  const over = pct !== null && pct > 100;
+  let pct = null, over = false;
+
+  if (opts.pctShare !== undefined) {
+    pct = opts.pctShare;
+  } else if (presupuestoRef > 0) {
+    pct = total / presupuestoRef * 100;
+    over = pct > 100;
+  }
+
+  const id = 'acc' + (accCounter++);
+  groupItemsRegistry[id] = items;
 
   return `
-    <div class="acc">
+    <div class="acc" data-id="${id}">
       <div class="acc-head">
         <span class="acc-chevron">▸</span>
         <span class="acc-title">${nombre}</span>
@@ -158,6 +308,15 @@ function acordeonGrupo(nombre, items, presupuestoRef){
       </div>
       <div class="acc-body">
         ${pct !== null ? `<div class="bar-track"><div class="bar-fill ${over ? 'over' : ''}" style="width:${Math.min(pct,100)}%"></div></div>` : ''}
+        ${opts.miniCharts ? `
+          <div class="mini-charts">
+            <div class="mini-chart-box"><p class="mini-chart-label">Por categoría</p><canvas id="${id}-cat"></canvas></div>
+            <div class="mini-chart-box"><p class="mini-chart-label">Por tipo</p><canvas id="${id}-tipo"></canvas></div>
+          </div>
+        ` : ''}
+        ${opts.subgrupos ? `<p class="group-title" style="margin-top:1rem;">Meses en este trimestre</p>${
+          opts.subgrupos.map(([subNombre, subItems]) => acordeonGrupo(subNombre, subItems, null, {})).join('')
+        }` : ''}
         ${tablaItems(items)}
       </div>
     </div>
@@ -187,13 +346,48 @@ function tablaItems(items){
 function activarAcordeones(){
   document.querySelectorAll('.acc-head').forEach(head => {
     head.addEventListener('click', () => {
-      head.closest('.acc').classList.toggle('open');
+      const acc = head.closest('.acc');
+      acc.classList.toggle('open');
+      if (acc.classList.contains('open') && !acc.dataset.rendered) {
+        acc.dataset.rendered = '1';
+        renderMiniCharts(acc.dataset.id);
+      }
     });
   });
 }
 
+// Gráficos chicos (categoría + tipo) que se crean recién al abrir el acordeón
+function renderMiniCharts(id){
+  const items = groupItemsRegistry[id];
+  const catCanvas = document.getElementById(id + '-cat');
+  const tipoCanvas = document.getElementById(id + '-tipo');
+  if (!items || !catCanvas || !tipoCanvas) return;
+
+  const porCat = agrupar(items, g => g.categoria);
+  const catEntradas = Object.entries(porCat).map(([n, its]) => [n, its.reduce((s,g) => s + g.monto, 0)]).filter(([,t]) => t > 0).sort((a,b) => b[1]-a[1]);
+  const totalCat = catEntradas.reduce((s,[,t]) => s + t, 0);
+
+  new Chart(catCanvas, {
+    type: 'doughnut',
+    data: { labels: catEntradas.map(([n]) => n), datasets: [{ data: catEntradas.map(([,t]) => t), backgroundColor: COLORES, borderColor: '#fff', borderWidth: 2 }] },
+    options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } },
+      tooltip: { callbacks: { label: c => `${c.label}: ${fmt(c.raw)} (${(c.raw/totalCat*100).toFixed(1)}%)` } } } }
+  });
+
+  const porTipo = agrupar(items, g => g.tipo);
+  const tipoEntradas = Object.entries(porTipo).map(([n, its]) => [n, its.reduce((s,g) => s + g.monto, 0)]);
+  const totalTipo = tipoEntradas.reduce((s,[,t]) => s + t, 0);
+
+  new Chart(tipoCanvas, {
+    type: 'doughnut',
+    data: { labels: tipoEntradas.map(([n]) => n), datasets: [{ data: tipoEntradas.map(([,t]) => t), backgroundColor: ['#3a6b5c','#b5482f'], borderColor: '#fff', borderWidth: 2 }] },
+    options: { plugins: { legend: { position: 'bottom', labels: { boxWidth: 8, font: { size: 9 } } },
+      tooltip: { callbacks: { label: c => `${c.label}: ${fmt(c.raw)} (${(c.raw/totalTipo*100).toFixed(1)}%)` } } } }
+  });
+}
+
 // ---------------------------------------------------------------
-// Vista: Por categoría — con selector Total/Q1-Q4 y gráfico de torta
+// Vista: Por categoría — selector Total/Q1-Q4 + gráfico de torta + % explícito
 // ---------------------------------------------------------------
 let categoriaScope = 'total';
 let chartCategoria = null;
@@ -212,9 +406,7 @@ function renderCategoria(){
     <div class="grid-2" style="align-items:start;">
       <div class="card">
         <h3>Distribución</h3>
-        <div style="position:relative; height:280px;">
-          <canvas id="chart-categoria"></canvas>
-        </div>
+        <div style="position:relative; height:300px;"><canvas id="chart-categoria"></canvas></div>
       </div>
       <div class="card">
         <h3>Detalle por categoría</h3>
@@ -243,32 +435,24 @@ function renderCategoria(){
   const totalGeneral = entradas.reduce((s, [, , t]) => s + t, 0);
 
   document.getElementById('categoria-lista').innerHTML = entradas
-    .map(([nombre, items, total]) => acordeonGrupo(nombre, items, null))
+    .map(([nombre, items, total]) => acordeonGrupo(nombre, items, null, {
+      pctShare: totalGeneral > 0 ? (total / totalGeneral * 100) : 0
+    }))
     .join('') || '<p style="color:var(--dim); font-size:0.85rem;">Sin gastos en este período.</p>';
   activarAcordeones();
 
-  const colores = ['#3a6b5c','#b5482f','#7a8fa3','#c9a24b','#8a6d9e','#5f9ea0','#a35f5f','#767676','#4b7a8f','#9e7a3a'];
   const ctx = document.getElementById('chart-categoria');
   if (chartCategoria) chartCategoria.destroy();
   chartCategoria = new Chart(ctx, {
     type: 'doughnut',
     data: {
       labels: entradas.map(([n]) => n),
-      datasets: [{
-        data: entradas.map(([, , t]) => t),
-        backgroundColor: colores,
-        borderColor: '#fff',
-        borderWidth: 2
-      }]
+      datasets: [{ data: entradas.map(([, , t]) => t), backgroundColor: COLORES, borderColor: '#fff', borderWidth: 2 }]
     },
     options: {
       plugins: {
         legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 11 } } },
-        tooltip: {
-          callbacks: {
-            label: (c) => `${c.label}: ${fmt(c.raw)} (${(c.raw / totalGeneral * 100).toFixed(1)}%)`
-          }
-        }
+        tooltip: { callbacks: { label: c => `${c.label}: ${fmt(c.raw)} (${(c.raw / totalGeneral * 100).toFixed(1)}%)` } }
       }
     }
   });
@@ -313,8 +497,7 @@ function renderTipoEstado(){
       <h3 style="color:var(--over);">Pendientes de pago — ${fmt(totalPendiente)} en ${pendientes.length} ítems</h3>
       <p style="color:var(--dim); font-size:0.82rem; margin-top:0.2rem;">Esto es plata comprometida que todavía no se ha pagado — sirve para hacer seguimiento y no perderle la pista.</p>
       ${Object.entries(agrupar(pendientes, g => g.categoria)).map(([cat, items]) => {
-        const suma = items.reduce((s, g) => s + g.monto, 0);
-        return acordeonGrupo(`${cat} (${mesesUnicos(items)})`, items, null);
+        return acordeonGrupo(`${cat} (${mesesUnicos(items)})`, items, null, {});
       }).join('') || '<p style="color:var(--dim); font-size:0.85rem; margin-top:0.5rem;">No hay pendientes 🎉</p>'}
     </div>
   `;
@@ -329,65 +512,102 @@ function mesesUnicos(items){
 }
 
 // ---------------------------------------------------------------
-// Vista: Informes (por mes, imprimible / exportable a PDF)
+// Vista: Informes — por mes, trimestre o año completo, imprimible / PDF
 // ---------------------------------------------------------------
+let informeScope = 'mes';
+let informeValor = null;
+
 function renderInformes(){
   const mesesConDatos = [...new Set(DATA.gastos.map(g => Number(g.mes)))]
     .filter(n => Number.isInteger(n) && n >= 1 && n <= 12)
     .sort((a,b) => a - b);
 
+  if (informeValor === null && mesesConDatos.length) informeValor = mesesConDatos[0];
+
   const content = document.getElementById('content');
   content.innerHTML = `
     <div class="card no-print" style="margin-bottom:1.2rem; display:flex; align-items:center; gap:1rem; flex-wrap:wrap;">
-      <label for="informe-mes" style="font-size:0.85rem; color:var(--dim);">Mes del informe:</label>
-      <select id="informe-mes" style="padding:0.4rem 0.6rem; border:1px solid var(--border); border-radius:4px;">
-        ${mesesConDatos.map(n => `<option value="${n}">${MESES[n-1]}</option>`).join('')}
-      </select>
+      <div style="display:flex; gap:0.4rem;">
+        <button class="scope-btn informe-scope-btn ${informeScope === 'mes' ? 'active' : ''}" data-scope="mes">Por mes</button>
+        <button class="scope-btn informe-scope-btn ${informeScope === 'trimestre' ? 'active' : ''}" data-scope="trimestre">Por trimestre</button>
+        <button class="scope-btn informe-scope-btn ${informeScope === 'anio' ? 'active' : ''}" data-scope="anio">Año completo</button>
+      </div>
+      <div id="informe-selector-extra"></div>
       <button id="print-btn" style="margin-left:auto; border:1px solid var(--border); background:#fff; padding:0.5rem 1rem; border-radius:4px; cursor:pointer;">Imprimir / Guardar como PDF</button>
     </div>
     <div id="informe-content"></div>
   `;
 
-  document.getElementById('informe-mes').addEventListener('change', e => {
-    renderInformeMes(Number(e.target.value));
+  document.querySelectorAll('.informe-scope-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      informeScope = btn.dataset.scope;
+      if (informeScope === 'mes') informeValor = mesesConDatos[0];
+      else if (informeScope === 'trimestre') informeValor = 'Q1';
+      else informeValor = null;
+      renderInformes();
+    });
   });
-  document.getElementById('print-btn').addEventListener('click', () => window.print());
 
-  if (mesesConDatos.length) renderInformeMes(mesesConDatos[0]);
+  const extra = document.getElementById('informe-selector-extra');
+  if (informeScope === 'mes') {
+    extra.innerHTML = `<select id="informe-valor">${mesesConDatos.map(n => `<option value="${n}" ${n === informeValor ? 'selected' : ''}>${MESES[n-1]}</option>`).join('')}</select>`;
+    document.getElementById('informe-valor').addEventListener('change', e => { informeValor = Number(e.target.value); renderInformeContenido(); });
+  } else if (informeScope === 'trimestre') {
+    extra.innerHTML = `<select id="informe-valor">${['Q1','Q2','Q3','Q4'].map(q => `<option value="${q}" ${q === informeValor ? 'selected' : ''}>${q}</option>`).join('')}</select>`;
+    document.getElementById('informe-valor').addEventListener('change', e => { informeValor = e.target.value; renderInformeContenido(); });
+  } else {
+    extra.innerHTML = '';
+  }
+
+  document.getElementById('print-btn').addEventListener('click', () => window.print());
+  renderInformeContenido();
 }
 
-function renderInformeMes(mesNum){
-  const items = DATA.gastos.filter(g => Number(g.mes) === mesNum);
-  const total = items.reduce((s, g) => s + g.monto, 0);
-  const presupuesto = DATA.presupuestoMensual;
-  const pct = presupuesto > 0 ? (total / presupuesto * 100) : 0;
-  const over = total > presupuesto;
+function renderInformeContenido(){
+  let items, titulo, presupuestoRef;
 
+  if (informeScope === 'mes') {
+    items = DATA.gastos.filter(g => Number(g.mes) === informeValor);
+    titulo = MESES[informeValor - 1];
+    presupuestoRef = DATA.presupuestoMensual;
+  } else if (informeScope === 'trimestre') {
+    items = DATA.gastos.filter(g => trimestreDeMes(g) === informeValor);
+    titulo = informeValor;
+    presupuestoRef = DATA.presupuestoMensual * 3;
+  } else {
+    items = DATA.gastos;
+    titulo = 'Año completo';
+    presupuestoRef = DATA.presupuestoMensual * 12;
+  }
+
+  const total = items.reduce((s, g) => s + g.monto, 0);
+  const pct = presupuestoRef > 0 ? (total / presupuestoRef * 100) : null;
+  const over = pct !== null && pct > 100;
   const porCategoria = agrupar(items, g => g.categoria);
 
-  const html = `
+  document.getElementById('informe-content').innerHTML = `
     <div class="card" style="margin-bottom:1.2rem;">
-      <h3>Informe de gastos — ${MESES[mesNum-1]}</h3>
+      <h3>Informe de gastos — ${titulo}</h3>
       <p style="color:var(--dim); font-size:0.8rem; margin-bottom:1rem;">Generado el ${new Date().toLocaleDateString('es-CL')}</p>
       <div class="grid-4">
         <div class="kpi">
           <div class="label">Presupuesto de referencia</div>
-          <div class="value">${fmt(presupuesto)}</div>
+          <div class="value">${fmt(presupuestoRef)}</div>
         </div>
         <div class="kpi">
-          <div class="label">Gasto real del mes</div>
+          <div class="label">Gasto real</div>
           <div class="value ${over ? 'over' : ''}">${fmt(total)}</div>
         </div>
         <div class="kpi">
           <div class="label">% del presupuesto usado</div>
-          <div class="value ${over ? 'over' : ''}">${presupuesto > 0 ? pct.toFixed(1) + '%' : '—'}</div>
+          <div class="value ${over ? 'over' : ''}">${pct !== null ? pct.toFixed(1) + '%' : '—'}</div>
         </div>
         <div class="kpi">
           <div class="label">N° de ítems registrados</div>
           <div class="value">${items.length}</div>
         </div>
       </div>
-      <p style="color:var(--dim); font-size:0.76rem; margin-top:0.8rem;">"Presupuesto de referencia" es el monto mensual fijo definido en tu Sheet (pestaña Config) — es el mismo para todos los meses, no un presupuesto específico negociado para ${MESES[mesNum-1]}.</p>
+      <p style="color:var(--dim); font-size:0.76rem; margin-top:0.8rem;">"Presupuesto de referencia" es el monto fijo definido en tu Sheet (pestaña Config) escalado al período elegido — no un presupuesto específico negociado para ${titulo}.</p>
     </div>
 
     <div class="card" style="margin-bottom:1.2rem;">
@@ -404,24 +624,9 @@ function renderInformeMes(mesNum){
 
     <div class="card">
       <h3>Detalle completo</h3>
-      <table style="margin-top:0.6rem;">
-        <thead><tr><th>Ítem</th><th>Categoría</th><th>Tipo</th><th>Detalle</th><th>Monto</th><th>Estado</th></tr></thead>
-        <tbody>
-          ${items.map(g => `
-            <tr>
-              <td>${g.item}</td>
-              <td>${g.categoria}</td>
-              <td>${g.tipo}</td>
-              <td>${g.detalle || '—'}</td>
-              <td>${fmt(g.monto)}</td>
-              <td><span class="pill pill-${claseEstado(g.estado)}">${g.estado}</span></td>
-            </tr>`).join('')}
-        </tbody>
-      </table>
+      ${tablaItems(items)}
     </div>
   `;
-
-  document.getElementById('informe-content').innerHTML = html;
 }
 
 function claseEstado(estado){
