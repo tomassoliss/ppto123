@@ -3,7 +3,7 @@
 // Cualquiera que vea este archivo .js puede leer la clave en texto plano.
 // Si algún día esto importa de verdad, hay que moverlo a un backend.)
 // ---------------------------------------------------------------
-const CLAVE = "hypnos2026"; // <-- cámbiala aquí
+const CLAVE = "Hypnos2026."; // <-- cámbiala aquí
 
 document.getElementById('lock-btn').addEventListener('click', tryUnlock);
 document.getElementById('lock-input').addEventListener('keydown', e => {
