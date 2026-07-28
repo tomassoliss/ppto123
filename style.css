@@ -1,0 +1,106 @@
+:root{
+  --bg:#fafafa;
+  --card:#ffffff;
+  --border:#e4e4e4;
+  --text:#1a1a1a;
+  --dim:#767676;
+  --accent:#3a6b5c; /* único color de acento, cámbialo aquí si quieres otro */
+  --over:#b5482f;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; font-family:-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  background:var(--bg); color:var(--text);
+}
+
+#lock{
+  height:100vh; display:flex; align-items:center; justify-content:center; gap:0.5rem;
+}
+#lock input{
+  padding:0.6rem 0.8rem; border:1px solid var(--border); border-radius:4px; font-size:0.95rem;
+}
+#lock button{
+  padding:0.6rem 1rem; border:none; background:var(--accent); color:#fff; border-radius:4px; cursor:pointer;
+}
+
+#app{ max-width:960px; margin:0 auto; padding:2.5rem 1.5rem; }
+
+header h1{ font-size:1.4rem; font-weight:600; margin-bottom:1rem; }
+
+#kpis{ display:flex; gap:1rem; flex-wrap:wrap; margin-bottom:1.5rem; }
+.kpi{
+  background:var(--card); border:1px solid var(--border); border-radius:6px;
+  padding:1rem 1.2rem; flex:1; min-width:160px;
+}
+.kpi .label{ font-size:0.72rem; text-transform:uppercase; letter-spacing:0.04em; color:var(--dim); }
+.kpi .value{ font-size:1.4rem; margin-top:0.3rem; }
+.kpi .value.over{ color:var(--over); }
+
+nav{ display:flex; gap:0.4rem; margin-bottom:1.2rem; border-bottom:1px solid var(--border); }
+nav button{
+  background:none; border:none; padding:0.6rem 0.9rem; cursor:pointer;
+  color:var(--dim); border-bottom:2px solid transparent; font-size:0.9rem;
+}
+nav button.active{ color:var(--text); border-color:var(--accent); }
+
+table{ width:100%; border-collapse:collapse; background:var(--card); border:1px solid var(--border); border-radius:6px; overflow:hidden; }
+th,td{ padding:0.6rem 0.8rem; text-align:left; border-bottom:1px solid var(--border); font-size:0.88rem; }
+th{ background:#f2f2f2; font-weight:600; font-size:0.75rem; text-transform:uppercase; color:var(--dim); }
+tr:last-child td{ border-bottom:none; }
+
+.bar-track{ background:#eee; border-radius:3px; height:6px; overflow:hidden; margin-top:0.4rem; }
+.bar-fill{ height:100%; background:var(--accent); }
+.bar-fill.over{ background:var(--over); }
+
+.group-title{ margin:1.4rem 0 0.5rem; font-size:1rem; font-weight:600; }
+
+.pill{
+  font-size:0.72rem; padding:0.15rem 0.55rem; border-radius:20px;
+  display:inline-block;
+}
+.pill-pagado{ background:#e7efec; color:var(--accent); }
+.pill-presupuestado{ background:#eee; color:var(--dim); }
+.pill-confirmado{ background:#fbeee9; color:var(--over); }
+
+/* Tarjetas y grillas usadas en Tipo/Estado e Informes */
+.card{
+  background:var(--card); border:1px solid var(--border); border-radius:6px; padding:1.2rem;
+}
+.grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
+.grid-4{ display:grid; grid-template-columns:repeat(4,1fr); gap:1rem; margin-top:0.5rem; }
+@media (max-width:700px){
+  .grid-2{ grid-template-columns:1fr; }
+  .grid-4{ grid-template-columns:1fr 1fr; }
+}
+
+/* Impresión: solo se imprime el informe, no el resto del dashboard */
+@media print{
+  header, nav, #lock, .no-print{ display:none !important; }
+  body{ background:#fff; }
+  #app{ padding:0; max-width:none; }
+  .card{ border:none; box-shadow:none; break-inside:avoid; }
+  table{ border:none; }
+}
+
+/* Acordeón colapsable (usado en Mes, Trimestre, Categoría, Pendientes) */
+.acc{
+  border:1px solid var(--border); border-radius:6px; margin-bottom:0.6rem; overflow:hidden; background:var(--card);
+}
+.acc-head{
+  display:flex; align-items:center; gap:0.6rem; padding:0.7rem 1rem; cursor:pointer;
+}
+.acc-head:hover{ background:#f7f7f7; }
+.acc-chevron{ transition:transform 0.15s ease; color:var(--dim); font-size:0.8rem; }
+.acc.open .acc-chevron{ transform:rotate(90deg); }
+.acc-title{ flex:1; font-weight:600; font-size:0.92rem; }
+.acc-total{ font-size:0.88rem; color:var(--dim); }
+.acc-total.over{ color:var(--over); }
+.acc-body{ max-height:0; overflow:hidden; padding:0 1rem; }
+.acc.open .acc-body{ max-height:none; overflow:visible; padding:0 1rem 1rem; }
+
+/* Botones de selección de alcance (Total / Q1-Q4) */
+.scope-btn{
+  border:1px solid var(--border); background:#fff; padding:0.4rem 0.9rem; border-radius:20px;
+  cursor:pointer; font-size:0.82rem; color:var(--dim);
+}
+.scope-btn.active{ background:var(--accent); border-color:var(--accent); color:#fff; }

@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Presupuesto Marketing</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div id="lock">
+  <input id="lock-input" type="password" placeholder="Clave">
+  <button id="lock-btn">Entrar</button>
+</div>
+
+<div id="app" hidden>
+  <header>
+    <div style="display:flex; align-items:baseline; justify-content:space-between; gap:1rem; flex-wrap:wrap;">
+      <h1>Presupuesto Marketing</h1>
+      <div style="display:flex; align-items:center; gap:0.8rem;">
+        <span id="last-update" style="font-size:0.78rem; color:var(--dim);"></span>
+        <button id="refresh-btn" style="border:1px solid var(--border); background:#fff; padding:0.4rem 0.8rem; border-radius:4px; cursor:pointer; font-size:0.82rem;">Actualizar</button>
+      </div>
+    </div>
+    <div id="kpis"></div>
+  </header>
+
+  <nav>
+    <button data-view="mes" class="active">Por mes</button>
+    <button data-view="trimestre">Por trimestre</button>
+    <button data-view="categoria">Por categoría</button>
+    <button data-view="tipoestado">Tipo y estado</button>
+    <button data-view="informes">Informes</button>
+  </nav>
+
+  <main id="content"></main>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.4/chart.umd.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
