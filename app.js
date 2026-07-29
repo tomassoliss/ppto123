@@ -212,14 +212,16 @@ function renderResumen(){
     </div>
   `;
 
-  // Gasto real por mes (barras) + línea de presupuesto de referencia
-  const porMesTodos = {};
-  for (let n = 1; n <= 12; n++) porMesTodos[n] = 0;
+  // Gasto real por mes, separado en Canje vs Pago directo (apilado en la misma barra)
+  const canjeMensual = new Array(12).fill(0);
+  const pagoDirectoMensual = new Array(12).fill(0);
   DATA.gastos.forEach(g => {
     const n = Number(g.mes);
-    if (n >= 1 && n <= 12) porMesTodos[n] += g.monto;
+    if (n >= 1 && n <= 12) {
+      if (g.tipo === 'Canje') canjeMensual[n-1] += g.monto;
+      else pagoDirectoMensual[n-1] += g.monto;
+    }
   });
-  const dataMensual = Object.values(porMesTodos);
 
   if (chartResumenMensual) chartResumenMensual.destroy();
   chartResumenMensual = new Chart(document.getElementById('chart-resumen-mensual'), {
@@ -227,17 +229,13 @@ function renderResumen(){
     data: {
       labels: MESES.map(m => m.slice(0,3)),
       datasets: [
-        {
-          label: 'Gasto real',
-          data: dataMensual,
-          backgroundColor: dataMensual.map(v => (DATA.presupuestoMensual > 0 && v > DATA.presupuestoMensual) ? COLOR_ALERTA : '#28211C'),
-          borderRadius: 3
-        },
+        { label: 'Canje', data: canjeMensual, backgroundColor: '#28211C', stack: 'gasto', borderRadius: 3 },
+        { label: 'Pago directo', data: pagoDirectoMensual, backgroundColor: '#B3AAA1', stack: 'gasto', borderRadius: 3 },
         {
           label: 'Presupuesto de referencia',
           data: MESES.map(() => DATA.presupuestoMensual),
           type: 'line',
-          borderColor: '#999',
+          borderColor: COLOR_ALERTA,
           borderDash: [4,4],
           pointRadius: 0,
           borderWidth: 1.5
@@ -250,7 +248,10 @@ function renderResumen(){
         legend: { position: 'top', labels: { boxWidth: 10, font: { size: 11 } } },
         tooltip: { callbacks: { label: c => `${c.dataset.label}: ${fmt(c.raw)}` } }
       },
-      scales: { y: { ticks: { callback: v => fmt(v) } } }
+      scales: {
+        x: { stacked: true },
+        y: { stacked: true, ticks: { callback: v => fmt(v) } }
+      }
     }
   });
 
@@ -539,6 +540,11 @@ function renderTipoEstado(){
           const claseExtra = nombre === 'Por pagar' ? 'over' : '';
           return filaBarra(nombre, items, claseExtra);
         }).join('')}
+        <div style="margin-top:1.2rem; padding-top:0.9rem; border-top:1px solid var(--beige-light);">
+          <p style="font-size:0.78rem; color:var(--dim); margin-bottom:0.4rem;"><strong style="color:var(--text);">Pagado</strong> — proyecto realizado</p>
+          <p style="font-size:0.78rem; color:var(--dim); margin-bottom:0.4rem;"><strong style="color:var(--text);">Presupuestado</strong> — proyecto no confirmado</p>
+          <p style="font-size:0.78rem; color:var(--dim);"><strong style="color:var(--over);">Por pagar</strong> — proyecto confirmado, a falta de pago</p>
+        </div>
       </div>
     </div>
 
