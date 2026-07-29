@@ -191,6 +191,7 @@ function renderResumen(){
     <div class="card" style="margin-bottom:1.2rem;">
       <h3>Gasto real por mes</h3>
       <div style="position:relative; height:260px;"><canvas id="chart-resumen-mensual"></canvas></div>
+      <p style="color:var(--dim); font-size:0.76rem; margin-top:0.6rem;">La línea entrecortada es el <strong style="color:var(--text);">presupuesto de referencia</strong>: ${fmt(DATA.presupuestoMensual)} al mes — división lineal de ${fmt(DATA.presupuestoMensual * 12)} en 12 meses.</p>
     </div>
     <div class="grid-2" style="margin-bottom:1.2rem;">
       <div class="card">
