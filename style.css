@@ -97,9 +97,11 @@ tr:last-child td{ border-bottom:none; }
   background:var(--card); border:1px solid var(--border); border-radius:var(--radius-card); padding:1.6rem;
 }
 .grid-2{ display:grid; grid-template-columns:1fr 1fr; gap:1.2rem; }
+.grid-3{ display:grid; grid-template-columns:repeat(3,1fr); gap:1.2rem; }
 .grid-4{ display:grid; grid-template-columns:repeat(4,1fr); gap:1.2rem; margin-top:0.5rem; }
 @media (max-width:700px){
   .grid-2{ grid-template-columns:1fr; }
+  .grid-3{ grid-template-columns:1fr; }
   .grid-4{ grid-template-columns:1fr 1fr; }
 }
 
