@@ -150,6 +150,30 @@ function renderKPIs(){
         ⚠ El presupuesto está en $0 — probablemente falta re-desplegar Code.gs como nueva versión en Apps Script (Deploy → Manage deployments → editar → New version).
       </p>`);
   }
+
+  // 3 cajas de estado (Pagado / Presupuestado / Por pagar): monto, % y qué significa cada uno.
+  // Van siempre arriba, junto a los KPIs generales, sin importar la pestaña activa.
+  const porEstadoResumen = agrupar(DATA.gastos, g => g.estado);
+  const explicacionEstado = {
+    'Pagado': 'proyecto realizado',
+    'Presupuestado': 'proyecto no confirmado',
+    'Por pagar': 'proyecto confirmado, a falta de pago'
+  };
+  const ordenEstados = ['Pagado', 'Presupuestado', 'Por pagar'];
+
+  document.getElementById('kpis-estado').innerHTML = ordenEstados.map(estado => {
+    const items = porEstadoResumen[estado] || [];
+    const suma = items.reduce((s, g) => s + g.monto, 0);
+    const pct = totalGastado > 0 ? (suma / totalGastado * 100) : 0;
+    const esOver = estado === 'Por pagar';
+    return `
+      <div class="kpi">
+        <div class="label">${estado}</div>
+        <div class="value ${esOver ? 'over' : ''}">${fmt(suma)} <span style="font-size:0.9rem; font-weight:400;">(${pct.toFixed(1)}%)</span></div>
+        <p style="color:var(--dim); font-size:0.78rem; margin-top:0.5rem;">${explicacionEstado[estado]}</p>
+      </div>
+    `;
+  }).join('');
 }
 
 // Agrupa un arreglo de gastos según una función de clave
@@ -212,7 +236,6 @@ function renderResumen(){
       </div>
     </div>
   `;
-
   // Gasto real por mes, separado en Canje vs Pago directo (apilado en la misma barra)
   const canjeMensual = new Array(12).fill(0);
   const pagoDirectoMensual = new Array(12).fill(0);
