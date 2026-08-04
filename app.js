@@ -51,6 +51,27 @@ function trimestreDeMes(g){
   return 'Sin trimestre';
 }
 
+// Usa costo neto para canjes (lo que realmente costó el producto), monto normal para el resto.
+function montoEfectivo(g){
+  const cn = Number(g.costoNeto);
+  return (g.tipo === 'Canje' && cn > 0) ? cn : g.monto;
+}
+
+// Mini desglose de prioridad (Imprescindible / Prescindible) para items Presupuestado o Por pagar.
+// Solo muestra si hay al menos uno con prioridad asignada.
+function prioridadMiniHTML(items){
+  const activos = items.filter(g => ['Presupuestado','Por pagar'].includes(g.estado) && g.prioridad);
+  if (!activos.length) return '';
+  const imp  = activos.filter(g => g.prioridad === 'Imprescindible').reduce((s,g) => s + montoEfectivo(g), 0);
+  const pres = activos.filter(g => g.prioridad === 'Prescindible').reduce((s,g) => s + montoEfectivo(g), 0);
+  const parts = [];
+  if (imp  > 0) parts.push(`<span style="color:var(--text); font-weight:500;">imp:</span> ${fmt(imp)}`);
+  if (pres > 0) parts.push(`<span style="color:var(--dim);">pres:</span> ${fmt(pres)}`);
+  return parts.length
+    ? `<span style="font-size:0.72rem; color:var(--dim); display:block; margin-top:0.25rem; letter-spacing:0.01em;">${parts.join(' &nbsp;/&nbsp; ')}</span>`
+    : '';
+}
+
 // ---------------------------------------------------------------
 // URL del Web App de Google Apps Script (el que termina en /exec)
 // ---------------------------------------------------------------
@@ -125,7 +146,7 @@ function chartDisponible(){
 }
 
 function renderKPIs(){
-  const totalGastado = DATA.gastos.reduce((sum, g) => sum + g.monto, 0);
+  const totalGastado = DATA.gastos.reduce((sum, g) => sum + montoEfectivo(g), 0);
   const presupuestoAnual = DATA.presupuestoMensual * 12;
   const pct = presupuestoAnual > 0 ? (totalGastado / presupuestoAnual * 100).toFixed(1) : null;
   const over = presupuestoAnual > 0 && totalGastado > presupuestoAnual;
@@ -163,14 +184,16 @@ function renderKPIs(){
 
   document.getElementById('kpis-estado').innerHTML = ordenEstados.map(estado => {
     const items = porEstadoResumen[estado] || [];
-    const suma = items.reduce((s, g) => s + g.monto, 0);
+    const suma = items.reduce((s, g) => s + montoEfectivo(g), 0);
     const pct = totalGastado > 0 ? (suma / totalGastado * 100) : 0;
     const esOver = estado === 'Por pagar';
+    const mostrarPrio = ['Presupuestado','Por pagar'].includes(estado);
     return `
       <div class="kpi">
         <div class="label">${estado}</div>
         <div class="value ${esOver ? 'over' : ''}">${fmt(suma)} <span style="font-size:0.9rem; font-weight:400;">(${pct.toFixed(1)}%)</span></div>
         <p style="color:var(--dim); font-size:0.78rem; margin-top:0.5rem;">${explicacionEstado[estado]}</p>
+        ${mostrarPrio ? prioridadMiniHTML(items) : ''}
       </div>
     `;
   }).join('');
@@ -242,8 +265,8 @@ function renderResumen(){
   DATA.gastos.forEach(g => {
     const n = Number(g.mes);
     if (n >= 1 && n <= 12) {
-      if (g.tipo === 'Canje') canjeMensual[n-1] += g.monto;
-      else pagoDirectoMensual[n-1] += g.monto;
+      if (g.tipo === 'Canje') canjeMensual[n-1] += montoEfectivo(g);
+      else pagoDirectoMensual[n-1] += montoEfectivo(g);
     }
   });
 
@@ -282,7 +305,7 @@ function renderResumen(){
   // Por categoría (donut, año completo)
   const porCat = agrupar(DATA.gastos, g => g.categoria);
   const catEntradas = Object.entries(porCat)
-    .map(([n, its]) => [n, its.reduce((s,g) => s + g.monto, 0)])
+    .map(([n, its]) => [n, its.reduce((s,g) => s + montoEfectivo(g), 0)])
     .filter(([,t]) => t > 0)
     .sort((a,b) => b[1] - a[1]);
   const totalCat = catEntradas.reduce((s,[,t]) => s + t, 0);
@@ -297,7 +320,7 @@ function renderResumen(){
 
   // Tipo
   const porTipo = agrupar(DATA.gastos, g => g.tipo);
-  const tipoEntradas = Object.entries(porTipo).map(([n, its]) => [n, its.reduce((s,g) => s + g.monto, 0)]);
+  const tipoEntradas = Object.entries(porTipo).map(([n, its]) => [n, its.reduce((s,g) => s + montoEfectivo(g), 0)]);
   const totalTipo = tipoEntradas.reduce((s,[,t]) => s + t, 0);
   if (chartResumenTipo) chartResumenTipo.destroy();
   chartResumenTipo = new Chart(document.getElementById('chart-resumen-tipo'), {
@@ -309,7 +332,7 @@ function renderResumen(){
 
   // Estado
   const porEstado = agrupar(DATA.gastos, g => g.estado);
-  const estadoEntradas = Object.entries(porEstado).map(([n, its]) => [n, its.reduce((s,g) => s + g.monto, 0)]);
+  const estadoEntradas = Object.entries(porEstado).map(([n, its]) => [n, its.reduce((s,g) => s + montoEfectivo(g), 0)]);
   const totalEstado = estadoEntradas.reduce((s,[,t]) => s + t, 0);
   const coloresEstado = { 'Pagado': '#28211C', 'Presupuestado': '#B3AAA1', 'Por pagar': COLOR_ALERTA };
   if (chartResumenEstado) chartResumenEstado.destroy();
@@ -350,7 +373,7 @@ function renderAgrupado(view){
 
 // nombre, items, presupuestoRef (o null), opts: { subgrupos, miniCharts, pctShare }
 function acordeonGrupo(nombre, items, presupuestoRef, opts = {}){
-  const total = items.reduce((sum, g) => sum + g.monto, 0);
+  const total = items.reduce((sum, g) => sum + montoEfectivo(g), 0);
   let pct = null, over = false;
 
   if (opts.pctShare !== undefined) {
@@ -363,12 +386,18 @@ function acordeonGrupo(nombre, items, presupuestoRef, opts = {}){
   const id = 'acc' + (accCounter++);
   groupItemsRegistry[id] = items;
 
+  // Mini desglose de prioridad visible en el header (antes de abrir)
+  const prioMini = prioridadMiniHTML(items);
+
   return `
     <div class="acc" data-id="${id}">
       <div class="acc-head">
         <span class="acc-chevron">▸</span>
         <span class="acc-title">${nombre}</span>
-        <span class="acc-total ${over ? 'over' : ''}">${fmt(total)}${pct !== null ? ` (${pct.toFixed(1)}%)` : ''}</span>
+        <span class="acc-total ${over ? 'over' : ''}" style="display:flex; flex-direction:column; align-items:flex-end;">
+          <span>${fmt(total)}${pct !== null ? ` (${pct.toFixed(1)}%)` : ''}</span>
+          ${prioMini}
+        </span>
       </div>
       <div class="acc-body">
         ${pct !== null ? `<div class="bar-track"><div class="bar-fill ${over ? 'over' : ''}" style="width:${Math.min(pct,100)}%"></div></div>` : ''}
@@ -388,20 +417,38 @@ function acordeonGrupo(nombre, items, presupuestoRef, opts = {}){
 }
 
 function tablaItems(items){
+  // Mostrar columna Prioridad solo si hay items activos con prioridad asignada
+  const hayPrioridad = items.some(g => ['Presupuestado','Por pagar'].includes(g.estado) && g.prioridad);
   return `
     <table style="margin-top:0.6rem;">
-      <thead><tr><th>Mes</th><th>Ítem</th><th>Categoría</th><th>Tipo</th><th>Detalle</th><th>Monto</th><th>Estado</th></tr></thead>
+      <thead><tr><th>Mes</th><th>Ítem</th><th>Categoría</th><th>Tipo</th><th>Detalle</th><th>Monto</th><th>Estado</th>${hayPrioridad ? '<th>Prioridad</th>' : ''}</tr></thead>
       <tbody>
-        ${items.map(g => `
+        ${items.map(g => {
+          const esActivo = ['Presupuestado','Por pagar'].includes(g.estado);
+          const esCanje  = g.tipo === 'Canje' && Number(g.costoNeto) > 0;
+          // Badge de prioridad
+          let prioBadge = '';
+          if (hayPrioridad) {
+            if (esActivo && g.prioridad === 'Imprescindible') {
+              prioBadge = `<span style="font-size:0.72rem; padding:0.15rem 0.5rem; border-radius:99px; background:#28211C; color:#fff; white-space:nowrap;">imprescindible</span>`;
+            } else if (esActivo && g.prioridad === 'Prescindible') {
+              prioBadge = `<span style="font-size:0.72rem; padding:0.15rem 0.5rem; border-radius:99px; background:#d6d1cb; color:#28211C; white-space:nowrap;">prescindible</span>`;
+            } else {
+              prioBadge = '<span style="color:var(--dim);">—</span>';
+            }
+          }
+          return `
           <tr>
             <td>${mesDeFecha(g)}</td>
             <td>${g.item}</td>
             <td>${g.categoria}</td>
             <td>${g.tipo}</td>
             <td>${g.detalle || '—'}</td>
-            <td>${fmt(g.monto)}</td>
+            <td>${fmt(montoEfectivo(g))}${esCanje ? `<br><span style="font-size:0.7rem; color:var(--dim);">costo neto</span>` : ''}</td>
             <td><span class="pill pill-${claseEstado(g.estado)}">${g.estado}</span></td>
-          </tr>`).join('')}
+            ${hayPrioridad ? `<td>${prioBadge}</td>` : ''}
+          </tr>`;
+        }).join('')}
       </tbody>
     </table>
   `;
@@ -434,7 +481,7 @@ function renderMiniCharts(id){
   }
 
   const porCat = agrupar(items, g => g.categoria);
-  const catEntradas = Object.entries(porCat).map(([n, its]) => [n, its.reduce((s,g) => s + g.monto, 0)]).filter(([,t]) => t > 0).sort((a,b) => b[1]-a[1]);
+  const catEntradas = Object.entries(porCat).map(([n, its]) => [n, its.reduce((s,g) => s + montoEfectivo(g), 0)]).filter(([,t]) => t > 0).sort((a,b) => b[1]-a[1]);
   const totalCat = catEntradas.reduce((s,[,t]) => s + t, 0);
 
   new Chart(catCanvas, {
@@ -445,7 +492,7 @@ function renderMiniCharts(id){
   });
 
   const porTipo = agrupar(items, g => g.tipo);
-  const tipoEntradas = Object.entries(porTipo).map(([n, its]) => [n, its.reduce((s,g) => s + g.monto, 0)]);
+  const tipoEntradas = Object.entries(porTipo).map(([n, its]) => [n, its.reduce((s,g) => s + montoEfectivo(g), 0)]);
   const totalTipo = tipoEntradas.reduce((s,[,t]) => s + t, 0);
 
   new Chart(tipoCanvas, {
@@ -498,7 +545,7 @@ function renderCategoria(){
 
   const grupos = agrupar(gastosFiltrados, g => g.categoria);
   const entradas = Object.entries(grupos)
-    .map(([nombre, items]) => [nombre, items, items.reduce((s, g) => s + g.monto, 0)])
+    .map(([nombre, items]) => [nombre, items, items.reduce((s, g) => s + montoEfectivo(g), 0)])
     .filter(([, , total]) => total > 0)
     .sort((a, b) => b[2] - a[2]);
 
@@ -536,16 +583,39 @@ function renderCategoria(){
 // Vista: Tipo y Estado
 // ---------------------------------------------------------------
 function renderTipoEstado(){
-  const total = DATA.gastos.reduce((s, g) => s + g.monto, 0);
+  const total = DATA.gastos.reduce((s, g) => s + montoEfectivo(g), 0);
 
   const porTipo = agrupar(DATA.gastos, g => g.tipo);
   const porEstado = agrupar(DATA.gastos, g => g.estado);
   const pendientes = DATA.gastos.filter(g => g.estado === 'Por pagar');
-  const totalPendiente = pendientes.reduce((s, g) => s + g.monto, 0);
+  const totalPendiente = pendientes.reduce((s, g) => s + montoEfectivo(g), 0);
 
   function filaBarra(nombre, items, claseExtra){
-    const suma = items.reduce((s, g) => s + g.monto, 0);
-    const pct = total > 0 ? (suma / total * 100) : 0;
+    const suma = items.reduce((s, g) => s + montoEfectivo(g), 0);
+    const pct  = total > 0 ? (suma / total * 100) : 0;
+
+    // Para Presupuestado y Por pagar: barra dividida en Imprescindible / Prescindible / Sin clasificar
+    if (['Presupuestado','Por pagar'].includes(nombre)) {
+      const imp      = items.filter(g => g.prioridad === 'Imprescindible').reduce((s,g) => s + montoEfectivo(g), 0);
+      const pres     = items.filter(g => g.prioridad === 'Prescindible').reduce((s,g) => s + montoEfectivo(g), 0);
+      const sinClasi = suma - imp - pres;
+      const leyenda  = [];
+      if (imp      > 0) leyenda.push(`<span style="color:var(--text); font-weight:500;">imp:</span> ${fmt(imp)}`);
+      if (pres     > 0) leyenda.push(`<span style="color:var(--dim);">pres:</span> ${fmt(pres)}`);
+      if (sinClasi > 0) leyenda.push(`<span style="color:var(--dim);">sin clasificar:</span> ${fmt(sinClasi)}`);
+      return `
+        <div class="group-title" style="margin-top:1rem;">${nombre} — ${fmt(suma)} (${pct.toFixed(1)}%)</div>
+        <div class="bar-track">
+          <div style="width:${pct}%; height:100%; display:flex; overflow:hidden; border-radius:3px;">
+            ${imp      > 0 ? `<div style="flex:${imp};      background:#28211C;" title="Imprescindible: ${fmt(imp)}"></div>`      : ''}
+            ${pres     > 0 ? `<div style="flex:${pres};     background:#B3AAA1;" title="Prescindible: ${fmt(pres)}"></div>`      : ''}
+            ${sinClasi > 0 ? `<div style="flex:${sinClasi}; background:#d6d1cb;" title="Sin clasificar: ${fmt(sinClasi)}"></div>` : ''}
+          </div>
+        </div>
+        ${leyenda.length ? `<p style="font-size:0.72rem; color:var(--dim); margin-top:0.3rem;">${leyenda.join(' &nbsp;/&nbsp; ')}</p>` : ''}
+      `;
+    }
+
     return `
       <div class="group-title" style="margin-top:1rem;">${nombre} — ${fmt(suma)} (${pct.toFixed(1)}%)</div>
       <div class="bar-track"><div class="bar-fill ${claseExtra || ''}" style="width:${pct}%"></div></div>
@@ -660,7 +730,7 @@ function renderInformeContenido(){
     presupuestoRef = DATA.presupuestoMensual * 12;
   }
 
-  const total = items.reduce((s, g) => s + g.monto, 0);
+  const total = items.reduce((s, g) => s + montoEfectivo(g), 0);
   const pct = presupuestoRef > 0 ? (total / presupuestoRef * 100) : null;
   const over = pct !== null && pct > 100;
   const porCategoria = agrupar(items, g => g.categoria);
@@ -708,7 +778,7 @@ function renderInformeContenido(){
   const ctxInforme = document.getElementById('chart-informe-categoria');
   if (chartDisponible()) {
     const catEntradas = Object.entries(porCategoria)
-      .map(([n, its]) => [n, its.reduce((s,g) => s + g.monto, 0)])
+      .map(([n, its]) => [n, its.reduce((s,g) => s + montoEfectivo(g), 0)])
       .filter(([,t]) => t > 0)
       .sort((a,b) => b[1] - a[1]);
     if (chartInforme) chartInforme.destroy();
