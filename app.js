@@ -358,11 +358,20 @@ function renderAgrupado(view){
   const grupos = agrupar(DATA.gastos, keyFn);
   const presupuestoRef = view === 'trimestre' ? DATA.presupuestoMensual * 3 : DATA.presupuestoMensual;
 
-  document.getElementById('content').innerHTML = Object.entries(grupos)
+  // Ordenar cronológicamente
+  let entradas = Object.entries(grupos);
+  if (view === 'mes') {
+    entradas = entradas.sort((a, b) => MESES.indexOf(a[0]) - MESES.indexOf(b[0]));
+  } else if (view === 'trimestre') {
+    entradas = entradas.sort((a, b) => a[0].localeCompare(b[0]));
+  }
+
+  document.getElementById('content').innerHTML = entradas
     .map(([nombre, items]) => {
       let subgrupos = null;
       if (view === 'trimestre') {
-        subgrupos = Object.entries(agrupar(items, g => mesDeFecha(g)));
+        subgrupos = Object.entries(agrupar(items, g => mesDeFecha(g)))
+          .sort((a, b) => MESES.indexOf(a[0]) - MESES.indexOf(b[0]));
       }
       return acordeonGrupo(nombre, items, presupuestoRef, { subgrupos, miniCharts: true });
     })
